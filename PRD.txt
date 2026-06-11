@@ -1,1 +1,91 @@
-
+Smart Canteen Pre-Order System
+Project Title
+Smart Canteen Pre-Order System
+1. Introduction
+The Smart Canteen Pre-Order System is a web-based application designed to simplify food ordering in college canteens. Students can place food orders online before reaching the canteen, reducing waiting time and improving service efficiency. The system helps both students and canteen staff by digitizing the ordering process.
+2. Problem Statement
+In traditional canteen systems:
+Students spend a lot of time waiting in queues.
+Order management becomes difficult during peak hours.
+Wrong or missed orders may occur.
+Canteen staff face challenges handling large numbers of customers.
+Lunch breaks are often wasted due to delays.
+3. Proposed Solution
+The Smart Canteen Pre-Order System allows students to browse the menu, select food items, and place orders online. The canteen staff receive orders in advance and prepare them before the student arrives. The system also provides order tracking and token generation for smooth order collection.
+4. Objectives
+Reduce waiting time in canteen queues.
+Improve order management and accuracy.
+Digitize the food ordering process.
+Enhance student convenience and satisfaction.
+Increase operational efficiency of the canteen.
+5. System Modules
+A. Student Module
+Features:
+Student Registration
+Login Authentication
+View Food Menu
+Search Food Items
+Add Items to Cart
+Place Orders
+View Order History
+Track Order Status
+Receive Token Number
+B. Admin/Canteen Staff Module
+Features:
+Secure Login
+Add New Food Items
+Update Food Details and Prices
+Delete Food Items
+Manage Orders
+Update Order Status
+View Daily Reports
+Manage Menu Availability
+6. System Workflow
+Student logs into the system.
+Student views the menu.
+Student selects food items.
+Student places an order.
+System generates a unique token number.
+Canteen staff receive the order.
+Food is prepared.
+Order status is updated.
+Student collects the order using the token number.
+Order is marked as completed.
+7. Order Status Flow
+Pending → Accepted → Preparing → Ready → Delivered
+Example:
+Order ID: 101
+Status: Pending
+Status: Accepted
+Status: Preparing
+Status: Ready
+Status: Delivered
+8. Database Design
+Student Table
+Field Name
+Student_ID
+Name
+Email
+Mobile_Number
+Password
+Food Table
+Field Name
+Food_ID
+Food_Name
+Category
+Price
+Availability
+Order Table
+Field Name
+Order_ID
+Student_ID
+Order_Date
+Total_Amount
+Status
+Token_Number
+Order Details Table
+Field Name
+Order_Detail_ID
+Order_ID
+Food_ID
+Quantity
