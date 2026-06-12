@@ -386,6 +386,81 @@ body{
 .empty-state{
   text-align:center;color:#999;padding:40px 0;font-size:0.95rem;
 }
+/* ===== Modals ===== */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.45);
+  display:flex;align-items:center;justify-content:center;
+  z-index:90;opacity:0;pointer-events:none;transition:opacity .25s ease;
+}
+.modal-overlay.show{opacity:1;pointer-events:auto;}
+.modal-card{
+  background:var(--paper);border-radius:14px;
+  width:100%;max-width:380px;max-height:90vh;overflow-y:auto;
+  padding:26px;box-shadow:0 16px 40px rgba(0,0,0,0.25);
+  transform:translateY(20px) scale(0.98);transition:transform .3s ease;
+}
+.modal-overlay.show .modal-card{transform:translateY(0) scale(1);}
+.modal-card h2{font-family:Georgia,serif;color:var(--green);margin-bottom:6px;font-size:1.4rem;}
+.modal-card p.sub{color:#777;font-size:0.85rem;margin-bottom:18px;}
+
+/* payment methods */
+.pay-methods{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}
+.pay-method{
+  display:flex;align-items:center;gap:10px;
+  border:1px solid var(--line);border-radius:10px;padding:12px;
+  cursor:pointer;font-size:0.9rem;transition:all .2s;
+}
+.pay-method:hover{border-color:var(--green-light);}
+.pay-method.selected{border-color:var(--green);background:rgba(47,111,79,0.06);font-weight:600;}
+.pay-method input{accent-color:var(--green);}
+.pay-summary{
+  background:var(--cream);border-radius:10px;padding:12px;
+  font-size:0.85rem;margin-bottom:18px;
+}
+.pay-summary .row{display:flex;justify-content:space-between;padding:3px 0;}
+.pay-summary .row.total{font-weight:700;color:var(--slate);border-top:1px dashed var(--line);margin-top:6px;padding-top:8px;}
+
+.processing{
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  padding:30px 0;
+}
+.spinner{
+  width:42px;height:42px;border-radius:50%;
+  border:4px solid var(--line);border-top-color:var(--green);
+  animation:spin 0.8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* bill */
+.bill-success-icon{
+  width:60px;height:60px;border-radius:50%;background:var(--green);
+  color:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:1.8rem;margin:0 auto 12px;
+  animation:popIn .4s ease;
+}
+@keyframes popIn{
+  from{transform:scale(0.4);opacity:0;}
+  to{transform:scale(1);opacity:1;}
+}
+.bill-paper{
+  border:1px dashed var(--line);border-radius:10px;
+  padding:16px;font-family:'Courier New',monospace;font-size:0.82rem;
+  margin:14px 0;background:#fff;
+}
+.bill-paper .bh{text-align:center;margin-bottom:8px;}
+.bill-paper .bh strong{font-size:1rem;font-family:'Courier New',monospace;}
+.bill-paper hr{border:none;border-top:1px dashed var(--line);margin:8px 0;}
+.bill-row{display:flex;justify-content:space-between;}
+.bill-row.total{font-weight:700;border-top:1px dashed var(--line);margin-top:6px;padding-top:6px;}
+.modal-actions{display:flex;gap:10px;margin-top:6px;}
+.modal-actions .btn-primary{flex:1;}
+.btn-secondary{
+  flex:1;padding:11px;background:#fff;color:var(--green);
+  border:1px solid var(--green);border-radius:8px;font-weight:600;
+  font-size:0.95rem;cursor:pointer;transition:all .2s;
+}
+.btn-secondary:hover{background:var(--cream);}
+
 .toast{
   position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);
   background:var(--slate);color:#fff;padding:12px 24px;border-radius:24px;
@@ -397,6 +472,11 @@ body{
 @media (max-width:640px){
   .topbar{flex-direction:column;align-items:flex-start;}
   .nav-tabs{width:100%;overflow-x:auto;}
+}
+@media print{
+  body *{visibility:hidden;}
+  #printArea, #printArea *{visibility:visible;}
+  #printArea{position:absolute;top:0;left:0;width:100%;padding:20px;}
 }
 </style>
 </head>
@@ -478,6 +558,20 @@ body{
 </button>
 
 <div class="toast" id="toast"></div>
+
+<!-- PAYMENT MODAL -->
+<div class="modal-overlay" id="paymentOverlay">
+  <div class="modal-card" id="paymentCard">
+    <!-- content injected by JS -->
+  </div>
+</div>
+
+<!-- BILL MODAL -->
+<div class="modal-overlay" id="billOverlay">
+  <div class="modal-card" id="billCard">
+    <!-- content injected by JS -->
+  </div>
+</div>
 
 <script>
 /* =========================================================
@@ -793,6 +887,10 @@ function closeCart(){
   document.getElementById('cartPanel').classList.remove('open');
   document.getElementById('overlay').classList.remove('show');
 }
+let selectedPayMethod = 'upi';
+let pendingOrderItems = null;
+let pendingOrderTotal = 0;
+
 function placeOrder(){
   const entries = Object.entries(cart).filter(([id,q])=>q>0);
   if(entries.length===0) return;
@@ -802,23 +900,143 @@ function placeOrder(){
     total += food.Price*qty;
     return {Food_ID:food.Food_ID, Food_Name:food.Food_Name, Quantity:qty, Price:food.Price, emoji:food.emoji};
   });
+  pendingOrderItems = items;
+  pendingOrderTotal = total;
+  closeCart();
+  openPaymentModal();
+}
+
+/* =========================================================
+   PAYMENT MODAL
+========================================================= */
+const PAY_METHODS = [
+  {id:'upi', label:'📱 UPI (GPay / PhonePe / Paytm)'},
+  {id:'card', label:'💳 Credit / Debit Card'},
+  {id:'wallet', label:'👛 Canteen Wallet'},
+  {id:'cod', label:'💰 Pay at Counter (Cash)'},
+];
+
+function openPaymentModal(){
+  selectedPayMethod = 'upi';
+  renderPaymentCard();
+  document.getElementById('paymentOverlay').classList.add('show');
+}
+function closePaymentModal(){
+  document.getElementById('paymentOverlay').classList.remove('show');
+}
+function renderPaymentCard(){
+  const card = document.getElementById('paymentCard');
+  card.innerHTML = `
+    <h2>💳 Choose Payment</h2>
+    <p class="sub">This is a demo payment — no real transaction will occur.</p>
+    <div class="pay-summary">
+      ${pendingOrderItems.map(it=>`<div class="row"><span>${it.emoji} ${it.Food_Name} ×${it.Quantity}</span><span>${fmt(it.Price*it.Quantity)}</span></div>`).join('')}
+      <div class="row total"><span>Total Payable</span><span>${fmt(pendingOrderTotal)}</span></div>
+    </div>
+    <div class="pay-methods">
+      ${PAY_METHODS.map(m=>`
+        <label class="pay-method ${m.id===selectedPayMethod?'selected':''}" onclick="selectPayMethod('${m.id}')">
+          <input type="radio" name="paymethod" value="${m.id}" ${m.id===selectedPayMethod?'checked':''}>
+          ${m.label}
+        </label>`).join('')}
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closePaymentModal()">Cancel</button>
+      <button class="btn-primary" onclick="processPayment()">Pay ${fmt(pendingOrderTotal)}</button>
+    </div>
+  `;
+}
+function selectPayMethod(id){
+  selectedPayMethod = id;
+  renderPaymentCard();
+}
+function processPayment(){
+  const card = document.getElementById('paymentCard');
+  card.innerHTML = `
+    <div class="processing">
+      <div class="spinner"></div>
+      <div style="font-weight:600;color:var(--slate);">Processing payment...</div>
+      <div style="font-size:0.8rem;color:#888;">Please don't close this window</div>
+    </div>`;
+  setTimeout(()=>{
+    finalizeOrderAfterPayment();
+  }, 1300);
+}
+
+/* =========================================================
+   FINALIZE ORDER + BILL
+========================================================= */
+function finalizeOrderAfterPayment(){
   const order = {
     Order_ID: nextOrderId++,
     Student_ID: currentUser.Student_ID,
     Order_Date: new Date(),
-    Total_Amount: total,
+    Total_Amount: pendingOrderTotal,
     Status: 'Pending',
     Token_Number: 'T'+(nextToken++),
-    items: items
+    items: pendingOrderItems,
+    Payment_Method: PAY_METHODS.find(m=>m.id===selectedPayMethod).label,
+    Payment_ID: 'PAY'+Math.floor(100000+Math.random()*900000)
   };
   orders.push(order);
   cart = {};
   tempQty = {};
-  closeCart();
-  showToast(`Order placed! Your token is ${order.Token_Number}`);
+  renderCart();
+
+  closePaymentModal();
+  openBillModal(order);
+
   currentTab = 'orders';
   renderTab();
 }
+
+function openBillModal(order){
+  const card = document.getElementById('billCard');
+  const dt = order.Order_Date;
+  card.innerHTML = `
+    <div style="text-align:center;">
+      <div class="bill-success-icon">✓</div>
+      <h2 style="text-align:center;">Payment Successful</h2>
+      <p class="sub" style="text-align:center;">Your order has been placed.</p>
+    </div>
+
+    <div class="bill-paper" id="printArea">
+      <div class="bh">
+        <strong>🍽️ Smart Canteen</strong><br>
+        <span style="font-size:0.75rem;">Pre-Order Receipt</span>
+      </div>
+      <hr>
+      <div class="bill-row"><span>Order ID</span><span>#${order.Order_ID}</span></div>
+      <div class="bill-row"><span>Token No.</span><span>${order.Token_Number}</span></div>
+      <div class="bill-row"><span>Student</span><span>${currentUser.Name}</span></div>
+      <div class="bill-row"><span>Date</span><span>${dt.toLocaleDateString()}</span></div>
+      <div class="bill-row"><span>Time</span><span>${dt.toLocaleTimeString()}</span></div>
+      <hr>
+      ${order.items.map(it=>`
+        <div class="bill-row"><span>${it.Food_Name} x${it.Quantity}</span><span>${fmt(it.Price*it.Quantity)}</span></div>
+      `).join('')}
+      <hr>
+      <div class="bill-row total"><span>Total Paid</span><span>${fmt(order.Total_Amount)}</span></div>
+      <hr>
+      <div class="bill-row"><span>Payment Mode</span><span>${order.Payment_Method}</span></div>
+      <div class="bill-row"><span>Payment ID</span><span>${order.Payment_ID}</span></div>
+      <div style="text-align:center;margin-top:10px;font-size:0.75rem;">Thank you! Show token at counter.</div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="printBill()">🖨️ Print Bill</button>
+      <button class="btn-primary" onclick="closeBillModal()">Done</button>
+    </div>
+  `;
+  document.getElementById('billOverlay').classList.add('show');
+}
+function closeBillModal(){
+  document.getElementById('billOverlay').classList.remove('show');
+}
+function printBill(){
+  window.print();
+}
+
 
 /* =========================================================
    STUDENT: ORDER HISTORY / TRACKING
@@ -840,6 +1058,7 @@ function renderStudentOrders(){
         </div>
         <div style="text-align:right;">
           <div class="token-chip">🎫 ${o.Token_Number}</div>
+          <button class="small-btn toggle" style="margin-top:6px;" onclick="openBillModal(orders.find(x=>x.Order_ID===${o.Order_ID}))">View Bill</button>
         </div>
       </div>
       <div class="order-items-list">
