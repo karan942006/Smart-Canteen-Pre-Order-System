@@ -1,0 +1,194 @@
+Build a complete Android app in Java (Android Studio) using Firebase Realtime Database and Firebase Authentication. The app is a Smart Canteen Pre-Order System for a college canteen. Do NOT include any device frame, mockup background, or surrounding UI — only the app content itself.
+
+=== DESIGN SYSTEM ===
+Color palette (match exactly):
+  --slate:       #1f2b27  (topbar, token chips, dark backgrounds)
+  --green:       #2f6f4f  (primary buttons, active states, badges)
+  --green-light: #4f9d74  (button hover, ready status)
+  --amber:       #f2a93b  (FAB, prices, cart button, accent)
+  --cream:       #fbf6ec  (page background, category filters bg)
+  --paper:       #fffdf7  (cards, panels, modals)
+  --line:        #d8cfb8  (borders, dividers)
+  --red:         #d9534f  (errors, delete, unavailable)
+  --ink:         #2a2a2a  (body text)
+
+Typography:
+  Headings: Georgia / serif
+  Body: Segoe UI / Tahoma / sans-serif
+  Monospace (token numbers, bill): Courier New / monospace
+
+Use these exact colors and font styles throughout. Cards use paper (#fffdf7) bg with line (#d8cfb8) borders and 12dp corner radius. Buttons use green (#2f6f4f) with white text and 8dp corners. Use amber (#f2a93b) for price text, cart FAB, and accent dots.
+
+=== FIREBASE SETUP ===
+Use Firebase Authentication (email/password) and Firebase Realtime Database.
+
+Database structure:
+  /students/{uid}: { name, email, mobile }
+  /foods/{foodId}: { name, category, price, availability, emoji }
+  /orders/{orderId}: { studentId, studentName, date, totalAmount, status, tokenNumber, paymentMethod, paymentId, items:[{foodId, foodName, qty, price, emoji}] }
+
+Seed these default food items on first launch if /foods is empty:
+  - Veg Sandwich, Snacks, ₹40, 🥪, available
+  - Masala Dosa, Breakfast, ₹50, 🥞, available
+  - Veg Biryani, Lunch, ₹90, 🍛, available
+  - Paneer Roll, Snacks, ₹60, 🌮, available
+  - Cold Coffee, Beverages, ₹35, 🥤, available
+  - Samosa (2pc), Snacks, ₹20, 🥟, available
+  - Veg Thali, Lunch, ₹100, 🍱, unavailable
+  - Masala Chai, Beverages, ₹15, ☕, available
+
+Admin login: hardcode check for admin@canteen.edu / admin123 (bypass Firebase Auth, go to admin screens).
+
+=== SCREENS & NAVIGATION ===
+
+--- STUDENT FLOW ---
+
+1. AuthActivity (Login + Register)
+   - Role toggle at top: "Student" | "Canteen Staff" (pill-style toggle, green active state)
+   - Login form: Email, Password fields → Login button
+   - Register form: Full Name, Email, Mobile, Password → Register button
+   - Switch links between login and register
+   - Red error box for validation messages
+   - Demo tip text: "Demo admin → admin@canteen.edu / admin123"
+
+2. StudentMainActivity (BottomNavigationView with 2 tabs)
+   - Tab 1: Menu (🍽️ icon)
+   - Tab 2: My Orders (📦 icon)
+   - Topbar: slate (#1f2b27) background, app name "Smart Canteen Pre-Order" in Georgia font (cream text), welcome message, Logout button (green pill)
+   - Floating Action Button (amber, bottom-right): Cart icon with red badge showing item count
+
+3. MenuFragment
+   - Search bar (rounded, 24dp corners): "Search food items..."
+   - Horizontal scrollable category filter chips: All, Breakfast, Lunch, Snacks, Beverages — amber active chip
+   - RecyclerView grid (2 columns) of food cards:
+     Each card (paper bg, line border, 12dp radius, lift on touch):
+       - Large emoji (36sp)
+       - Food name (slate, 17sp)
+       - Category tag (small green pill: rgba(47,111,79,0.1) bg, green text)
+       - Price in amber (18sp bold)
+       - "Currently unavailable" in red if not available
+       - Quantity row: circular minus/plus buttons, quantity number center
+       - "Add to cart" button (green, full width): shows "Add N to cart" when qty > 0, "Unavailable" + disabled when not available
+
+4. Cart Bottom Sheet (slides up from bottom)
+   - Header: "Your Cart 🧾", close button
+   - List of cart items: name, emoji, price × qty = subtotal, Remove button (red text)
+   - Footer: Total row (bold), "Place Order" button (green full width), disabled + 0.6 opacity when cart empty
+
+5. Payment Bottom Sheet (opens after Place Order)
+   - Title: "Choose Payment 💳"
+   - Subtitle: "This is a demo payment — no real transaction will occur."
+   - Order summary box (cream bg): each item with name and subtotal, total row (bold, dashed top border)
+   - Payment method radio list (bordered rows, green border when selected):
+       📱 UPI (GPay / PhonePe / Paytm)
+       💳 Credit / Debit Card
+       👛 Canteen Wallet
+       💰 Pay at Counter (Cash)
+   - Cancel + Pay ₹XX buttons (row)
+   - On Pay: show spinner dialog "Processing payment..." for 1.3 seconds, then finalize
+
+6. Bill Modal / Dialog (after payment)
+   - Green checkmark circle (animated scale-in)
+   - "Payment Successful" heading
+   - Receipt card (monospace font, dashed border):
+       🍽️ Smart Canteen — Pre-Order Receipt
+       Order ID, Token No., Student name, Date, Time
+       Divider lines (dashed)
+       Each item: name × qty — price
+       Total Paid (bold)
+       Payment Mode, Payment ID
+       "Thank you! Show token at counter."
+   - Print Bill button (shares/prints receipt via Android share intent)
+   - Done button (closes modal, navigates to My Orders tab)
+
+7. MyOrdersFragment
+   - List of student's own orders, most recent first
+   - Each order card (paper bg, line border):
+       Top row: Order #ID + date | Token chip (slate bg, amber monospace text) + "View Bill" button
+       Items list (small gray text): emoji name ×qty, comma separated
+       Total in green bold
+       Progress tracker (horizontal stepper):
+         5 steps: Pending → Accepted → Preparing → Ready → Delivered
+         Connecting line (gray), fill line (green) up to current step
+         Each step: circle dot (gray unfilled, green filled for done, amber pulsing for current) + label below
+         Done steps: slate bold text; Current: amber pulsing ring animation; Future: gray
+
+--- ADMIN FLOW ---
+
+8. AdminMainActivity (BottomNavigationView with 3 tabs)
+   - Tab 1: Dashboard (📊)
+   - Tab 2: Manage Orders (📦)
+   - Tab 3: Manage Menu (🍱)
+   - Same topbar style as student, shows "Canteen Staff Dashboard"
+
+9. DashboardFragment
+   - Section title "Canteen Overview" with amber left border accent
+   - Stats grid (2 columns, stat cards with paper bg):
+       Total Orders (number, green bold Georgia 28sp)
+       Active / Pending Orders
+       Today's Revenue (₹ formatted)
+       Registered Students
+       Items Available (X/Y format)
+   - "Recent Orders" section title
+   - Last 5 orders in a table/list:
+       Token | Order ID | Items | Total | Status badge
+
+10. ManageOrdersFragment
+    - All orders, most recent first
+    - RecyclerView list, each row:
+        Token chip (slate/amber) | Order ID | Student name | Items summary | Total | Status badge | Status dropdown spinner
+    - Status options: Pending, Accepted, Preparing, Ready, Delivered
+    - Changing spinner updates Firebase immediately and shows toast
+
+11. ManageFoodsFragment
+    - Add Food form at top (card layout):
+        Fields: Food Name, Category, Price, Emoji → "+ Add Item" button (green)
+    - RecyclerView list of all food items:
+        Each row: Food ID | Emoji Name | Category | Price (editable field) | Availability badge | Actions
+        Actions: "Disable"/"Enable" toggle button (green) | "Delete" button (red)
+        Price field is inline editable — update Firebase on focus lost
+
+=== STATUS BADGES ===
+Pending:   gray   (#999999)
+Accepted:  blue   (#5b8def)
+Preparing: amber  (#f2a93b) with slate text
+Ready:     light green (#4f9d74)
+Delivered: green  (#2f6f4f)
+
+=== ANIMATIONS & UX ===
+- Cards: fade-up entry animation (translateY 16dp → 0, alpha 0 → 1, 400ms)
+- App logo badge: gentle pulse scale animation (1.0 → 1.08, 3s loop)
+- Current step dot: amber pulsing ring glow animation
+- Bill checkmark: scale-in pop animation on appear
+- Bottom sheets slide up smoothly
+- Toast messages for all actions (added to cart, item added, price updated, etc.)
+- Cart FAB shows/hides based on login role
+
+=== DEPENDENCIES (build.gradle) ===
+Include:
+  - Firebase BOM (latest)
+  - firebase-auth
+  - firebase-database
+  - Material Components for Android (latest)
+  - RecyclerView
+  - CardView
+  - ConstraintLayout
+
+=== FILE STRUCTURE ===
+Generate all files:
+  - MainActivity / AuthActivity
+  - StudentMainActivity, AdminMainActivity
+  - MenuFragment, MyOrdersFragment
+  - DashboardFragment, ManageOrdersFragment, ManageFoodsFragment
+  - CartBottomSheet, PaymentBottomSheet
+  - BillDialog
+  - Models: Student.java, Food.java, Order.java, OrderItem.java, CartItem.java
+  - Adapters: FoodAdapter.java, CartAdapter.java, OrderAdapter.java, AdminOrderAdapter.java, AdminFoodAdapter.java
+  - FirebaseHelper.java (all DB read/write methods)
+  - All XML layouts matching the colors, card styles, and typography above
+  - colors.xml, styles.xml, themes.xml with the exact color values defined above
+  - AndroidManifest.xml with all activities registered
+  - build.gradle (app) with all dependencies
+  - google-services.json placeholder with instructions to replace
+
+Make every screen fully functional. Use Firebase ValueEventListener for real-time updates on orders (so admin status changes reflect instantly on student order tracking). Generate complete, copy-paste-ready code for every file.
